@@ -101,19 +101,15 @@ class WSNameApplet(gnomeapplet.Applet):
     entryvisible = False
 
     def __init__(self,applet,iid):
-        #self.width = 120
-        self.applet = applet
 
-        #self.applet.set_style(self.get_style())
+        self.applet = applet
         self.menu = gtk.MenuBar()
         self.menuitem = gtk.MenuItem()
-        self.menuitem.connect("select", self._on_select)
-        self.menuitem.connect("deselect", self._on_deselect)
+	self.label = gtk.Label()
+        self.label.set_size_request(120,-1)
+
         self.menuitem.connect("button-press-event", self._on_button_press)
         self.applet.connect("change-background", self._on_change_background)
-        
-
-	self.label = gtk.Label()
 
 	self.applet.add(self.menu)
 	self.menu.add(self.menuitem)
@@ -128,30 +124,24 @@ class WSNameApplet(gnomeapplet.Applet):
 	self._name_change_handler_id = None
 
 
-    def _on_select(self, event):
-        self.entryvisible = True
-        self.entry_window.positionWindow()            
-        self.entry_window.show_all()
-        self.entry_window.present()
-        self.entry_window.entry.set_text(self.workspace.get_name())
-        #self.entry_window.entry.set_position(-1)
-        #self.entry_window.entry.select_region(0, -1)
-        gobject.timeout_add(0, self.entry_window.entry.grab_focus)
-
-    def _on_deselect(self, event):
-        self.entry_window.hide()
-        pass
+    def toggle_entry(self):
+        if self.entryvisible == True:
+            self.entryvisible = False
+            self.entry_window.hide()
+        else:
+            self.entryvisible = True
+            self.entry_window.positionWindow()            
+            self.entry_window.show_all()
+            self.entry_window.present()
+            self.entry_window.entry.set_text(self.workspace.get_name())
+            gobject.timeout_add(0, self.entry_window.entry.grab_focus)
 
     def _on_button_press(self, menuitem, event):
         if event.button != 1:
             menuitem.stop_emission("button-press-event")
- #       if self.entryvisible == True:
- #           self.entry_window.hide()
- #           self.entryvisible = False
+        self.toggle_entry()
     
     def _on_workspace_changed(self, event, old_workspace):
-#        if self.menuitem.get_active():
-#            self.menuitem.set_active(False)
 	if (self._name_change_handler_id):
 	    self.workspace.disconnect(self._name_change_handler_id)
         self.workspace = really_get_active_workspace(self.screen)
@@ -162,7 +152,7 @@ class WSNameApplet(gnomeapplet.Applet):
         self.show_workspace_name()
 
     def show_workspace_name(self):
-        self.label.set_text("%20s" % self.workspace.get_name())
+        self.label.set_text(self.workspace.get_name())
 	self.applet.show_all()
 
     def _on_change_background(self, applet, type, color, pixmap):

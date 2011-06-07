@@ -1,6 +1,8 @@
 2011-06-06  Riccardo Cecolin <rkj@playkanji.com>
 	* Ported to gnome 2.30.2.
 	* Fixed installation.
+	* Removed gconf stuff.
+	* Style switched from togglebutton to menuitem (prettier).
 
 2009-04-03  Alexandre Owen Muniz  <munizao@xprt.net>
 

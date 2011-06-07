@@ -12,11 +12,11 @@ import codecs
 import random
 
 # debugging
-import os
-new_stdout = open ("/tmp/debug.stdout", "w")
-new_stderr = open ("/tmp/debug.stderr", "w")
-os.dup2(new_stdout.fileno(), sys.stdout.fileno())
-os.dup2(new_stderr.fileno(), sys.stderr.fileno())
+# import os
+# new_stdout = open ("/tmp/debug.stdout", "w")
+# new_stderr = open ("/tmp/debug.stderr", "w")
+# os.dup2(new_stdout.fileno(), sys.stdout.fileno())
+# os.dup2(new_stderr.fileno(), sys.stderr.fileno())
 
 class AlignedWindow(gtk.Window):
 
@@ -68,14 +68,12 @@ class AlignedWindow(gtk.Window):
         self.move(newX, newY)
         self.show()
 
-
-
 class WSNameEntryWindow(AlignedWindow):
     def __init__(self, widget, app):
         AlignedWindow.__init__(self, widget)
         self.app = app
 	frame = gtk.Frame()
-	frame.set_shadow_type(gtk.SHADOW_OUT)
+	#frame.set_shadow_type(gtk.SHADOW_OUT)
         self.entry = gtk.Entry()
 	frame.add(self.entry)
 	self.add(frame)
@@ -83,56 +81,77 @@ class WSNameEntryWindow(AlignedWindow):
 	self.set_default_size(0,0)
         self.entry.connect("activate", self._on_activate)
         self.entry.connect("key-release-event", self._on_key_release)
+        self.entry.connect("leave-notify-event", self._on_activate)
 
     def _on_activate(self, event):
-        self.app.toggle.set_active(False)
         self.app.workspace.change_name(self.entry.get_text())
-        
+        self.entryvisible = False
+        self.hide()
+
     def _on_key_release(self, widget, event):
         if event.keyval == gtk.keysyms.Escape:
-            self.app.toggle.set_active(False)
+            self.app.entryvisible = False
+            self.entry_window.hide()
+        
 
 class WSNameApplet(gnomeapplet.Applet):
     _name_change_handler_id = None
     workspace = None
     
+    entryvisible = False
+
     def __init__(self,applet,iid):
-        self.width = 130
+        #self.width = 120
         self.applet = applet
 
-        self.toggle = gtk.ToggleButton()
-	self.toggle.connect("toggled", self._on_toggled)
-        self.toggle.connect("button-press-event", self._on_button_press)
+        #self.applet.set_style(self.get_style())
+        self.menu = gtk.MenuBar()
+        self.menuitem = gtk.MenuItem()
+        self.menuitem.connect("select", self._on_select)
+        self.menuitem.connect("deselect", self._on_deselect)
+        self.menuitem.connect("button-press-event", self._on_button_press)
+        self.applet.connect("change-background", self._on_change_background)
+        
+
 	self.label = gtk.Label()
-	self.applet.add(self.toggle)
-	self.toggle.add(self.label)
-	
+
+	self.applet.add(self.menu)
+	self.menu.add(self.menuitem)
+	self.menuitem.add(self.label)
+
 	self.screen = wnck.screen_get_default()
 	self.screen.connect("active_workspace_changed", self._on_workspace_changed)
 	self.entry_window = WSNameEntryWindow(self.applet, self)
+        self.workspace = really_get_active_workspace(self.screen)
+        self.show_workspace_name()
 
 	self._name_change_handler_id = None
 
 
-    def _on_toggled(self, event):
-        if self.toggle.get_active():
-            self.entry_window.positionWindow()            
-            self.entry_window.show_all()
-            self.entry_window.present()
-	    self.entry_window.entry.set_text(self.workspace.get_name())
-            self.entry_window.entry.set_position(-1)            
-            self.entry_window.entry.select_region(0, -1)
-            gobject.timeout_add(0, self.entry_window.entry.grab_focus)
-        else:
-            self.entry_window.hide()
+    def _on_select(self, event):
+        self.entryvisible = True
+        self.entry_window.positionWindow()            
+        self.entry_window.show_all()
+        self.entry_window.present()
+        self.entry_window.entry.set_text(self.workspace.get_name())
+        #self.entry_window.entry.set_position(-1)
+        #self.entry_window.entry.select_region(0, -1)
+        gobject.timeout_add(0, self.entry_window.entry.grab_focus)
 
-    def _on_button_press(self, toggle, event):
+    def _on_deselect(self, event):
+        self.entry_window.hide()
+        pass
+
+    def _on_button_press(self, menuitem, event):
         if event.button != 1:
-            toggle.stop_emission("button-press-event")
-
+            menuitem.stop_emission("button-press-event")
+ #       if self.entryvisible == True:
+ #           self.entry_window.hide()
+ #           self.entryvisible = False
+    
     def _on_workspace_changed(self, event, old_workspace):
-        if self.toggle.get_active():
-            self.toggle.set_active(False)
+#        if self.menuitem.get_active():
+#            self.menuitem.set_active(False)
 	if (self._name_change_handler_id):
 	    self.workspace.disconnect(self._name_change_handler_id)
         self.workspace = really_get_active_workspace(self.screen)
@@ -143,8 +162,21 @@ class WSNameApplet(gnomeapplet.Applet):
         self.show_workspace_name()
 
     def show_workspace_name(self):
-        self.label.set_text(self.workspace.get_name())
+        self.label.set_text("%20s" % self.workspace.get_name())
 	self.applet.show_all()
+
+    def _on_change_background(self, applet, type, color, pixmap):
+        applet.set_style(None)
+        rc_style = gtk.RcStyle()
+        applet.modify_style(rc_style)
+        if (type == gnomeapplet.COLOR_BACKGROUND):
+            applet.modify_bg(gtk.STATE_NORMAL, color)
+        elif (type == gnomeapplet.PIXMAP_BACKGROUND):
+            style = applet.style
+            style.bg_pixmap[gtk.STATE_NORMAL] = pixmap
+            self.applet.set_style(style)
+        
+
 
 def really_get_active_workspace(screen):
     # This bit is needed because wnck is asynchronous.
